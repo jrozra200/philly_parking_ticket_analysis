@@ -7,12 +7,18 @@ output: html_document
 
 # INTRODUCTION
 
-I few weeks ago, I stumblied across [Dylan Purcell's](https://twitter.com/dylancpurcell) article on [Philadelphia Parking Violations](http://data.philly.com/philly/parking/). This is a nice glimpse of the data, but I wanted to get a taste of it myself. I went and downloaded the entire data set of [Parking Violations in Philadelphia](https://www.opendataphilly.org/dataset/parking-violations) from the [OpenDataPhilly website](http://opendataphilly.org) and came up with a few questions after glimpsing the data:
+I few weeks ago, I stumblied across [Dylan Purcell's](https://twitter.com/dylancpurcell) 
+article on [Philadelphia Parking Violations](http://data.philly.com/philly/parking/). This
+ is a nice glimpse of the data, but I wanted to get a taste of it myself. I went and 
+ downloaded the entire data set of  [Parking Violations in Philadelphia](https://www.opendataphilly.org/dataset/parking-violations) 
+ from the [OpenDataPhilly website](http://opendataphilly.org) and came up with a few 
+ questions after glimpsing the data: 
 
 * How many tickets in the data set?
 * What is the range of dates in the data?
 * Are there missing days/data?
-* What was the biggest/smallest individual fine? What were those fines for? Who issued those fines?
+* What was the biggest/smallest individual fine? What were those fines for? 
+Who issued those fines?
 * What was the average individual fine amount?
 * What day had the most/least count of fines? What is the average amount per day?
 * How much $ in fines did they write each day? Average?
@@ -33,34 +39,142 @@ And finally to the cool stuff:
 
 With the data and a mission, I got on my way... 
 
-First things first - we need to load the required packages and read in the data. I am cheating a bit here and loading the packages I know I'll need down the road... so more on some of these later. There is probably a way to download the data directly from OpenDataPhilly's website, but I just went ahead and downloaded it first to my working directory. KISS.
+First things first - we need to load the required packages and read in the data. I am 
+ cheating a bit here and loading the packages I know I'll need down the road... so more 
+ on some of these later. There is probably a way to download the data directly from 
+ OpenDataPhilly's website, but I just went ahead and downloaded it first to my working 
+ directory. K.I.S.S.
 
-```{r load_packages_read_data}
+```{r load_packages_read_data, echo = FALSE}
 library(plyr)           # NEEDED TO DO SOME COOL DATA MANIPULATIONS
 library(ggmap)          # LETS ME GRAB A MAP OF PHILLY TO PLOT THE TICKETS AGAINST
 library(ggplot2)        # LETS ME PLOT THE TICKETS
 library(randomForest)   # RANDOM FORESTS = PREDICTIONS... YES!
 library(party)          # ANOTHER RANDOM FOREST OPTION
 
-ptix <- read.csv("Parking_Violations.csv")
+ptix <- read.csv("Parking_Violations.csv")      ## DATA FILE FROM OPENDATAPHILLY
 ```
 
-## R Markdown
+# THE DATA!
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+## How many tickets are in the dataset? 
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+There are `r dim(ptix)[1]` tickets in the dataset. That's a good amount!
 
-```{r cars}
-summary(cars)
+## What is the range of dates in the data?
+
+For this, we'll have to do some transformations to the data. We convert the time into 
+a POSIXct object.
+
+```{r date_transform}
+## CONVERT TO A DATETIME OBJECT
+ptix$Issue.Date.and.Time <- as.POSIXct(strptime(as.character(ptix$Issue.Date.and.Time), 
+                                                format = "%m/%d/%Y %I:%M:%S %p"))
 ```
 
-## Including Plots
+And then we can do the calculations on the date range.
 
-You can also embed plots, for example:
+```{r date_range}
+earliest <- min(ptix$Issue.Date.and.Time)       ## EARLIEST = MINIMUM DATETIME
+latest <- max(ptix$Issue.Date.and.Time)         ## LATEST = MAXIMUM DATETIME
+range <- latest - earliest                      ## RANGE IS THE DIFFERENCE
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+print(range)                                    ## PRINT THE RESULTS
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+**`r as.integer(round(range,0))` days!** That ain't half bad! Now - from that range - 
+do we have any days missing?
+
+## Are there missing days/data?
+
+Here I convert the datetime variable into a date. I then do a count of tickets per date. 
+
+```{r missing_days}
+## CONVERT THE DATETIME TO BE A DATE ONLY
+days <- as.data.frame(as.Date(ptix$Issue.Date.and.Time, format = "%m/%d/%Y"))
+names(days) <- "date"                   ## NAME THE COLUMN TO SOMETHING NICE
+## COUNT THE DATA BY DATE - HOW MANY TICKETS DO WE HAVE EVERY DAY
+count_by_day <- ddply(days, .(date), summarize, count = length(date))
+```
+
+Here we have data for `r dim(count_by_day)[1]` dates. That is one more than the 
+range given above... this may be that we have some cross overlap that the range 
+above misses as it is a more precise calculation. At this point, I am ok with 
+saying we don't have any missing days of data (or any surprise extra days of data). 
+
+```{r summary_of_data}
+summary(ptix)           ## JUST A FLAT SUMMARY OF THE DATA FRAME
+```
+
+So - there is a lot here. For one, we have a TON of NAs in the Division data. 
+That's fine... I don't plan to use that data for much of anything. The 
+**Standardized Location** and **Coordinates** appear to be identical. In that 
+data, there is `r length(ptix$Coordinates[ptix$Coordinates == ""])` missing 
+events. I think that is ok... that only is only 
+`r round(length(ptix$Coordinates[ptix$Coordinates == ""]) / length(ptix$Coordinates), 2) * 100`
+% of the data. We could probably back-fill this data, but the amount shouldn't 
+affect the overall quality of the insights we're gleaning from the data. 
+
+Depending on how I dive into the Violation Descriptions - there seems to be 
+multiple varieties of the same violation (some tickets are appended with the 
+"CC"). I'll probably want to remove that before doing any analysis on that field.
+
+We now have a good idea of what the data looks like. It is pretty good in size 
+and we dont seem to have any missing days of data. At this point, we are ready 
+to gain some insight from the data.
+
+# INSIGHTS FROM THE DATA
+
+## What was the biggest/smallest individual fine? 
+
+The Fine data is a string and it includes a pesky '$' at the beginning. First we 
+have to clean that up and convert the data to a numeric.
+
+```{r cleaning_fine_data}
+ptix$Fine <- gsub("\\$", "", ptix$Fine)         ## REMOVE THE '$'
+ptix$Fine <- as.numeric(ptix$Fine)              ## CHANGE IT TO A NUMERIC
+```
+
+Now the largest and smallest fines:
+
+```{r max_min_fines}
+## GRAB THE IMPORTANT COLUMNS FOR WHEN THE FINE IS THE MAXIMUM
+maxfine <- ptix[ptix$Fine == max(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
+## GRAB THE IMPORTANT COLUMNS FOR WHEN THE FINE IS THE MINIMUM
+minfine <- ptix[ptix$Fine == min(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
+head(maxfine)   ## SHOW A SNIPPET OF THE MAXFINE DATA
+head(minfine)   ## SHOW A SNIPPET OF THE MINFINE DATA
+```
+
+Interesting - the same fine `r maxfine$Violation.Description[1]` has the most 
+and least expensive fines at the same time. Executive decision: the fine should 
+really be $`r maxfine$Fine[1]` for all of these. With that, the new minimum fine
+is:
+
+```{r fix_min_fines}
+ptix$Fine[ptix$Fine == min(ptix$Fine)] <- 2000  ## CHANGING THE $1 FINES TO $2000
+## GRAB THE IMPORTANT COLUMNS FOR WHEN THE FINE IS THE MINIMUM NOW
+minfine <- ptix[ptix$Fine == min(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
+head(minfine)
+```
+
+And the average fine was $`r round(mean(ptix$Fine), 2)`. Not cheap to get a ticket 
+in Philadelphia. 
+
+So - let's look a bit higher now.
+
+## What day had the most/least count of fines? What is the average amount per day?
+
+```{r max_min_day_count}
+maxday <- count_by_day[count_by_day$count == max(count_by_day$count), ]
+minday <- count_by_day[count_by_day$count == min(count_by_day$count), ]
+avday <- mean(count_by_day$count)
+```
+
+On "best" day (for Philadelphia tax revenue), `r maxday$Date`, there were 
+`r maxday$count` tickets issued. Contrast that to the "worst" day, 
+`r minday$Date`, when there were `r maxday$count` tickets issued.
+
+## How much $ in fines did they write each day? Average?
+
+

@@ -9,9 +9,8 @@ ptix <- read.csv("Parking_Violations.csv")
 
 ## QUESTIONS TO ANSWER
 # What is the range of dates in the data frame?
-ptix$Issue.Date.and.Time <- strptime(as.character(ptix$Issue.Date.and.Time), 
-                                     format = "%m/%d/%Y %I:%M:%S %p")
-ptix$Issue.Date.and.Time <- as.POSIXct(ptix$Issue.Date.and.Time)
+ptix$Issue.Date.and.Time <- as.POSIXct(strptime(as.character(ptix$Issue.Date.and.Time), 
+                                     format = "%m/%d/%Y %I:%M:%S %p"))
 
 earliest <- min(ptix$Issue.Date.and.Time)
 latest <- max(ptix$Issue.Date.and.Time)
@@ -32,11 +31,11 @@ numtix <- dim(ptix)[1]
 ptix$Fine <- gsub("\\$", "", ptix$Fine)
 ptix$Fine <- as.numeric(ptix$Fine)
 
-maxfine <- ptix[ptix$Fine == max(ptix$Fine), ]
-minfine <- ptix[ptix$Fine == min(ptix$Fine), ]
+maxfine <- ptix[ptix$Fine == max(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
+minfine <- ptix[ptix$Fine == min(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
 ptix$Fine[ptix$Fine == min(ptix$Fine)] <- 2000  ## CHANGING THE $1 FINES TO $2000
 ## TO MATCH THE OTHER ATV TICKETS
-minfine <- ptix[ptix$Fine == min(ptix$Fine), ]
+minfine <- ptix[ptix$Fine == min(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
 
 # What was the average fine?
 summary(ptix$Fine)
@@ -44,6 +43,7 @@ summary(ptix$Fine)
 # What day had the most fines? Least fines?
 maxday <- count_by_day[count_by_day$count == max(count_by_day$count), ]
 minday <- count_by_day[count_by_day$count == min(count_by_day$count), ]
+avday <- mean(count_by_day$count)
 
 # How much $ in fines did they write each day? Average? 
 ptix <- cbind(ptix, days)
