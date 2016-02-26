@@ -1,0 +1,66 @@
+---
+title: "Philly Parking Tickets"
+author: "Jacob Rozran"
+date: "February 25, 2016"
+output: html_document
+---
+
+# INTRODUCTION
+
+I few weeks ago, I stumblied across [Dylan Purcell's](https://twitter.com/dylancpurcell) article on [Philadelphia Parking Violations](http://data.philly.com/philly/parking/). This is a nice glimpse of the data, but I wanted to get a taste of it myself. I went and downloaded the entire data set of [Parking Violations in Philadelphia](https://www.opendataphilly.org/dataset/parking-violations) from the [OpenDataPhilly website](http://opendataphilly.org) and came up with a few questions after glimpsing the data:
+
+* How many tickets in the data set?
+* What is the range of dates in the data?
+* Are there missing days/data?
+* What was the biggest/smallest individual fine? What were those fines for? Who issued those fines?
+* What was the average individual fine amount?
+* What day had the most/least count of fines? What is the average amount per day?
+* How much $ in fines did they write each day? Average?
+* What hour of the day had the most fines?
+* What day of the week had the most fines?
+* What day of the month had the most fines?
+* What state has the most fines?
+* Who (what individual) has the most fines?
+* Who paid the most in fines?
+* How many people have been issued fines?
+* What fines are issued the most/least?
+
+And finally to the cool stuff:
+
+* Where were the most fines?
+* Can I predict the amount of parking tickets by the weather using linear regression?
+* How about using Random Forests?
+
+With the data and a mission, I got on my way... 
+
+First things first - we need to load the required packages and read in the data. I am cheating a bit here and loading the packages I know I'll need down the road... so more on some of these later. There is probably a way to download the data directly from OpenDataPhilly's website, but I just went ahead and downloaded it first to my working directory. KISS.
+
+```{r load_packages_read_data}
+library(plyr)           # NEEDED TO DO SOME COOL DATA MANIPULATIONS
+library(ggmap)          # LETS ME GRAB A MAP OF PHILLY TO PLOT THE TICKETS AGAINST
+library(ggplot2)        # LETS ME PLOT THE TICKETS
+library(randomForest)   # RANDOM FORESTS = PREDICTIONS... YES!
+library(party)          # ANOTHER RANDOM FOREST OPTION
+
+ptix <- read.csv("Parking_Violations.csv")
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
