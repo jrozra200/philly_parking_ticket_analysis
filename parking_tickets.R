@@ -20,7 +20,7 @@ range <- latest - earliest
 days <- as.data.frame(as.Date(ptix$Issue.Date.and.Time, format = "%m/%d/%Y"))
 names(days) <- "date"
 count_by_day <- ddply(days, .(date), summarize, count = length(date))
-dim(count_by_day)       ## MISSING 19 days
+dim(count_by_day)
 counts <- table(days)
 barplot(counts)
 
@@ -146,7 +146,3 @@ map3 <- ggmap(philly3, extent = "device") + geom_density2d(data = count_by_coord
         scale_fill_gradient(low = "green", high = "red", guide = FALSE) + 
         scale_alpha(range = c(0, 0.3), guide = FALSE)
 
-# Can I predict the amount of parking tickets by the weather?
-hist(count_by_day$count)
-
-# Can I do some k-means clustering?
