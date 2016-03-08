@@ -1,9 +1,46 @@
-setwd("~/Google Drive/Grad School/Programming Practice/Philly Parking Tickets")
+---
+title: "Philly Parking Tickets"
+author: "Jacob Rozran"
+date: "March 8, 2016"
+output: html_document
+---
 
+# INTRODUCTION
+
+I few weeks ago, I stumblied across [Dylan Purcell's](https://twitter.com/dylancpurcell) 
+article on [Philadelphia Parking Violations](http://data.philly.com/philly/parking/). This
+ is a nice glimpse of the data, but I wanted to get a taste of it myself. I went and 
+ downloaded the entire data set of  [Parking Violations in Philadelphia](https://www.opendataphilly.org/dataset/parking-violations) 
+ from the [OpenDataPhilly website](http://opendataphilly.org) and came up with a few 
+ questions after checking out the data: 
+
+* How many tickets in the data set?
+* What is the range of dates in the data?
+* Are there missing days/data?
+* What was the biggest/smallest individual fine? What were those fines for? 
+Who issued those fines?
+* What was the average individual fine amount?
+* What day had the most/least count of fines? What is the average amount per day?
+* How much $ in fines did they write each day?
+* What hour of the day are the most fines issued?
+* What day of the week are the most fines issued?
+* What day of the month are the most fines issued?
+* What state has been issued the most fines?
+* Who (what individual) has been issued the most fines?
+* How much does the individual with the most fines owe the city?
+* How many people have been issued fines?
+* What fines are issued the most/least?
+
+And finally to the cool stuff:
+
+* Where were the most fines? Can I see them on a heat map?
+* Can I predict the amount of parking tickets by weather data and other factors using linear regression? How about using Random Forests?
+
+```{r do_all_the_things, include=FALSE, echo=FALSE}
 library(plyr)           # NEEDED TO DO SOME COOL DATA MANIPULATIONS
 library(ggplot2)        # LETS ME PLOT THE TICKETS
-library(ggmap)          # LETS ME GRAB A MAP OF PHILLY TO PLOT THE TICKETS AGAINST
-library(randomForest)   # RANDOM FORESTS = PREDICTIONS... YES!
+library(ggmap, quietly = TRUE)  # LETS ME GRAB A MAP OF PHILLY TO PLOT THE TICKETS AGAINST
+library(randomForest, quietly = TRUE)   # RANDOM FORESTS = PREDICTIONS... YES!
 
 ptix <- read.csv("Parking_Violations.csv")      ## DATA FILE FROM OPENDATAPHILLY
 
@@ -66,7 +103,6 @@ names(hours) <- "hour"
 count_by_hour <- ddply(hours, .(hour), summarize, count = length(hour))
 maxhour <- count_by_hour$hour[count_by_hour$count == max(count_by_hour$count)]
 minhour <- count_by_hour$hour[count_by_hour$count == min(count_by_hour$count)]
-barplot(height = count_by_hour$count, names.arg = count_by_hour$hour)
 
 # What day of the week had the most fines?
 wday <- as.data.frame(strftime(ptix$Issue.Date.and.Time, format = "%A"))
@@ -74,7 +110,6 @@ names(wday) <- "weekday"
 count_by_wday <- ddply(wday, .(weekday), summarize, count = length(weekday))
 maxwday <- count_by_wday$weekday[count_by_wday$count == max(count_by_wday$count)]
 minwday <- count_by_wday$weekday[count_by_wday$count == min(count_by_wday$count)]
-barplot(height = count_by_wday$count, names.arg = count_by_wday$weekday)
 
 # What day of the month had the most fines?
 mday <- as.data.frame(strftime(ptix$Issue.Date.and.Time, format = "%d"))
@@ -82,7 +117,6 @@ names(mday) <- "day_of_month"
 count_by_mday <- ddply(mday, .(day_of_month), summarize, count = length(day_of_month))
 maxmday <- count_by_mday$day_of_month[count_by_mday$count == max(count_by_mday$count)]
 minmday <- count_by_mday$day_of_month[count_by_mday$count == min(count_by_mday$count)]
-barplot(height = count_by_mday$count, names.arg = count_by_mday$day_of_month)
 
 # What state has the most fines?
 count_by_state <- ddply(ptix, .(State), summarize, count = length(State))
@@ -153,4 +187,27 @@ map3 <- ggmap(philly3, extent = "device") + geom_density2d(data = count_by_coord
                        size = 0.01, geom = "polygon") + 
         scale_fill_gradient(low = "green", high = "red", guide = FALSE) + 
         scale_alpha(range = c(0, 0.3), guide = FALSE)
+```
 
+Question                                                        | Answer
+----------------------------------------------------------------|------------
+How many tickets in the data set?                               | `r numtix`
+What is the range of dates in the data?                         | `r range`
+Are there missing days/data?                                    | Nope. 
+What was the biggest individual fine?                           | $`r maxfine$dols`
+What was the biggest individual fine for?                       | `r maxfine$
+What was the smallest individual fine?                          |
+What was the smallest individual fine for?                      |
+What was the average individual fine amount?                    |
+What day had the most count of violations?                      |
+What day had the least count of violations?                     |
+What is the average amount of violations per day?               |
+How much $ in fines did they write each day on average?         |
+What hour of the day are the most fines issued?                 |
+What day of the week are the most fines issued?                 |
+What day of the month are the most fines issued?                |
+What state has been issued the most fines?                      |
+Who (what individual) has been issued the most fines?           |
+How much does the individual with the most fines owe the city?  |
+How many people have been issued fines?                         |
+What fines are issued the most/least?                           |
