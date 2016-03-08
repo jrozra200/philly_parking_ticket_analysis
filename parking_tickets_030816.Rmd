@@ -36,7 +36,7 @@ And finally to the cool stuff:
 * Where were the most fines? Can I see them on a heat map?
 * Can I predict the amount of parking tickets by weather data and other factors using linear regression? How about using Random Forests?
 
-```{r do_all_the_things, include=FALSE, echo=FALSE}
+```{r do_all_the_things, include=FALSE, echo=FALSE, cache=TRUE}
 library(plyr)           # NEEDED TO DO SOME COOL DATA MANIPULATIONS
 library(ggplot2)        # LETS ME PLOT THE TICKETS
 library(ggmap, quietly = TRUE)  # LETS ME GRAB A MAP OF PHILLY TO PLOT THE TICKETS AGAINST
@@ -69,12 +69,12 @@ ptix$Fine <- gsub("\\$", "", ptix$Fine)         ## REMOVE THE '$'
 ptix$Fine <- as.numeric(ptix$Fine)              ## CHANGE IT TO A NUMERIC
 
 ## GRAB THE IMPORTANT COLUMNS FOR WHEN THE FINE IS THE MAXIMUM
-maxfine <- ptix[ptix$Fine == max(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
+maxfine_tot <- ptix[ptix$Fine == max(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
 ## GRAB THE IMPORTANT COLUMNS FOR WHEN THE FINE IS THE MINIMUM
-minfine <- ptix[ptix$Fine == min(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
+minfine_tot <- ptix[ptix$Fine == min(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
 ptix$Fine[ptix$Fine == min(ptix$Fine)] <- 2000  ## CHANGING THE $1 FINES TO $2000
 ## GRAB THE IMPORTANT COLUMNS FOR WHEN THE FINE IS THE MINIMUM NOW
-minfine <- ptix[ptix$Fine == min(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
+minfine_tot <- ptix[ptix$Fine == min(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
 
 # What was the average fine?
 summary(ptix$Fine)
@@ -140,74 +140,32 @@ maxfine <- count_by_plate[count_by_plate$totalFine == max(count_by_plate$totalFi
 # How many people have been issued fines?
 numpeeps <- dim(count_by_plate)[1]
 
-# Where were the most fines?
-count_by_coord <- ddply(ptix[ptix$Coordinates != "", ], .(Coordinates), 
-                        summarize, count = length(Coordinates))
-
-count_by_coord <- cbind(count_by_coord, perc = 0)
-count_by_coord$bins <- count_by_coord$count / sum(count_by_coord$count)
-
-count_by_coord$Coordinates <- gsub("\\(", "", count_by_coord$Coordinates)
-count_by_coord$Coordinates <- gsub("\\)", "", count_by_coord$Coordinates)
-
-latlon <- strsplit(count_by_coord$Coordinates[count_by_coord$Coordinates != ""], ",")
-
-## 287145 tickets do not have location data - skipping them for now
-
-latlon <- ldply(latlon, rbind)
-names(latlon) <- c("lat", "lon")
-
-count_by_coord <- cbind(count_by_coord, latlon)
-count_by_coord$lat <- as.numeric(as.character(count_by_coord$lat))
-count_by_coord$lon <- as.numeric(as.character(count_by_coord$lon))
-
-philly1 <- get_map(location = "Philadelphia", maptype = "satellite", zoom = 10)
-
-map1 <- ggmap(philly1, extent = "device") + geom_density2d(data = count_by_coord, 
-                                                           aes(x = lon, y = lat)) + 
-        stat_density2d(data = count_by_coord, aes(fill = ..level.., alpha = ..level..),
-                       size = 0.01, geom = "polygon") + 
-        scale_fill_gradient(low = "green", high = "red", guide = FALSE) + 
-        scale_alpha(range = c(0, 0.3), guide = FALSE)
-
-philly2 <- get_map(location = "Philadelphia", maptype = "satellite", zoom = 12)
-
-map2 <- ggmap(philly2, extent = "device") + geom_density2d(data = count_by_coord, 
-                                      aes(x = lon, y = lat)) + 
-        stat_density2d(data = count_by_coord, aes(fill = ..level.., alpha = ..level..),
-                       size = 0.01, geom = "polygon") + 
-        scale_fill_gradient(low = "green", high = "red", guide = FALSE) + 
-        scale_alpha(range = c(0, 0.3), guide = FALSE)
-
-philly3 <- get_map(location = "Philadelphia", maptype = "satellite", zoom = 14)
-
-map3 <- ggmap(philly3, extent = "device") + geom_density2d(data = count_by_coord, 
-                                                           aes(x = lon, y = lat)) + 
-        stat_density2d(data = count_by_coord, aes(fill = ..level.., alpha = ..level..),
-                       size = 0.01, geom = "polygon") + 
-        scale_fill_gradient(low = "green", high = "red", guide = FALSE) + 
-        scale_alpha(range = c(0, 0.3), guide = FALSE)
 ```
 
 Question                                                        | Answer
-----------------------------------------------------------------|------------
+----------------------------------------------------------------|---------------------------------------------
 How many tickets in the data set?                               | `r numtix`
-What is the range of dates in the data?                         | `r range`
+What is the range of dates in the data?                         | `r round(range, 0)`
 Are there missing days/data?                                    | Nope. 
-What was the biggest individual fine?                           | $`r maxfine$dols`
-What was the biggest individual fine for?                       | `r maxfine$
-What was the smallest individual fine?                          |
-What was the smallest individual fine for?                      |
-What was the average individual fine amount?                    |
-What day had the most count of violations?                      |
-What day had the least count of violations?                     |
-What is the average amount of violations per day?               |
-How much $ in fines did they write each day on average?         |
-What hour of the day are the most fines issued?                 |
-What day of the week are the most fines issued?                 |
-What day of the month are the most fines issued?                |
-What state has been issued the most fines?                      |
-Who (what individual) has been issued the most fines?           |
-How much does the individual with the most fines owe the city?  |
-How many people have been issued fines?                         |
-What fines are issued the most/least?                           |
+What was the biggest individual fine?                           | $`r maxfine_tot$Fine[1]`
+What was the biggest individual fine for?                       | `r as.character(maxfine_tot$Violation.Description[1])`
+What was the smallest individual fine?                          | $`r minfine_tot$Fine[1]`
+What was the smallest individual fine for?                      | `r as.character(minfine_tot$Violation.Description[1])`
+What was the average individual fine amount?                    | $`r round(mean(ptix$Fine), 2)`
+What day had the most count of violations?                      | `r maxday$date`
+How many violations on that day?                                | `r maxday$count`
+What day had the least count of violations?                     | `r minday$date`
+How many violations on that day?                                | `r minday$count`
+What is the average amount of violations per day?               | `r avday`
+How much $ in fines did the city write each day on average?     | $`r round(avgdols, 2)`
+What hour of the day are the most fines issued?                 | `r as.character(maxhour)`
+What hour of the day are the least fines issued?                | `r as.character(minhour)`
+What day of the week are the most fines issued?                 | `r as.character(maxwday)`
+What day of the week are the least fines issued?                | `r as.character(minwday)`
+What day of the month are the most fines issued?                | `r as.character(maxmday)`
+What day of the month are the least fines issued?               | `r as.character(minmday)`
+What state has been issued the most fines?                      | `r as.character(maxstate$State)`
+How many violations does the individual with the most have?     | `r maxfine$count`
+How much does the individual with the most fines owe the city?  | $`r maxfine$totalFine`
+How many people have been issued fines?                         | `r numpeeps`
+What fines are issued the most/least?                           | NEED TO FIGURE THIS OUT
