@@ -32,12 +32,12 @@ ptix$Fine <- gsub("\\$", "", ptix$Fine)         ## REMOVE THE '$'
 ptix$Fine <- as.numeric(ptix$Fine)              ## CHANGE IT TO A NUMERIC
 
 ## GRAB THE IMPORTANT COLUMNS FOR WHEN THE FINE IS THE MAXIMUM
-maxfine <- ptix[ptix$Fine == max(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
+maxfine_1 <- ptix[ptix$Fine == max(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
 ## GRAB THE IMPORTANT COLUMNS FOR WHEN THE FINE IS THE MINIMUM
-minfine <- ptix[ptix$Fine == min(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
+minfine_1 <- ptix[ptix$Fine == min(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
 ptix$Fine[ptix$Fine == min(ptix$Fine)] <- 2000  ## CHANGING THE $1 FINES TO $2000
 ## GRAB THE IMPORTANT COLUMNS FOR WHEN THE FINE IS THE MINIMUM NOW
-minfine <- ptix[ptix$Fine == min(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
+minfine_1 <- ptix[ptix$Fine == min(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
 
 # What was the average fine?
 summary(ptix$Fine)
@@ -84,6 +84,10 @@ maxmday <- count_by_mday$day_of_month[count_by_mday$count == max(count_by_mday$c
 minmday <- count_by_mday$day_of_month[count_by_mday$count == min(count_by_mday$count)]
 barplot(height = count_by_mday$count, names.arg = count_by_mday$day_of_month)
 
+month <- as.data.frame(months(ptix$Issue.Date.and.Time))
+names(month) <- "month"
+count_by_month <- ddply(month, .(month), summarize, count = length(month) / )
+
 # What state has the most fines?
 count_by_state <- ddply(ptix, .(State), summarize, count = length(State))
 maxstate <- count_by_state[count_by_state$count == max(count_by_state$count), ]
@@ -103,35 +107,33 @@ maxcount <- count_by_plate[count_by_plate$count == max(count_by_plate$count), ]
 # Who paid the most in fines?
 maxfine <- count_by_plate[count_by_plate$totalFine == max(count_by_plate$totalFine), ]
 
+head(ptix[ptix$Plate.ID == 1612270 & ptix$State == "PA",])
+tail(ptix[ptix$Plate.ID == 1612270 & ptix$State == "PA",])
+
 # How many people have been issued fines?
 numpeeps <- dim(count_by_plate)[1]
 
 # Where were the most fines?
-count_by_coord <- ddply(ptix[ptix$Coordinates != "", ], .(Coordinates), 
-                        summarize, count = length(Coordinates))
-
-count_by_coord <- cbind(count_by_coord, perc = 0)
-count_by_coord$bins <- count_by_coord$count / sum(count_by_coord$count)
-
-count_by_coord$Coordinates <- gsub("\\(", "", count_by_coord$Coordinates)
-count_by_coord$Coordinates <- gsub("\\)", "", count_by_coord$Coordinates)
-
-latlon <- strsplit(count_by_coord$Coordinates[count_by_coord$Coordinates != ""], ",")
-
-## 287145 tickets do not have location data - skipping them for now
-
-latlon <- ldply(latlon, rbind)
-names(latlon) <- c("lat", "lon")
-
 count_by_coord <- cbind(count_by_coord, latlon)
 count_by_coord$lat <- as.numeric(as.character(count_by_coord$lat))
 count_by_coord$lon <- as.numeric(as.character(count_by_coord$lon))
 
+ptix$Coordinates <- gsub("\\(", "", ptix$Coordinates)
+ptix$Coordinates <- gsub("\\)", "", ptix$Coordinates)
+
+## 287145 tickets do not have location data - skipping them for now
+latlon <- strsplit(ptix$Coordinates[ptix$Coordinates != ""], ",")
+
+latlon <- ldply(latlon, rbind)
+names(latlon) <- c("lat", "lon")
+latlon$lat <- as.numeric(as.character(latlon$lat))
+latlon$lon <- as.numeric(as.character(latlon$lon))
+
 philly1 <- get_map(location = "Philadelphia", maptype = "satellite", zoom = 10)
 
-map1 <- ggmap(philly1, extent = "device") + geom_density2d(data = count_by_coord, 
+map1 <- ggmap(philly1, extent = "device") + geom_density2d(data = latlon, 
                                                            aes(x = lon, y = lat)) + 
-        stat_density2d(data = count_by_coord, aes(fill = ..level.., alpha = ..level..),
+        stat_density2d(data = latlon, aes(fill = ..level.., alpha = ..level..),
                        size = 0.01, geom = "polygon") + 
         scale_fill_gradient(low = "green", high = "red", guide = FALSE) + 
         scale_alpha(range = c(0, 0.3), guide = FALSE)
