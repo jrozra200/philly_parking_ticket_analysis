@@ -118,7 +118,7 @@ $(document).ready(function () {
 
 <div id="introduction" class="section level1">
 <h1>INTRODUCTION</h1>
-<p>I few weeks ago, I stumblied across <a href="https://twitter.com/dylancpurcell">Dylan Purcell’s</a> article on <a href="http://data.philly.com/philly/parking/">Philadelphia Parking Violations</a>. This is a nice glimpse of the data, but I wanted to get a taste of it myself. I went and downloaded the entire data set of <a href="https://www.opendataphilly.org/dataset/parking-violations">Parking Violations in Philadelphia</a> from the <a href="http://opendataphilly.org">OpenDataPhilly website</a> and came up with a few questions after glimpsing the data:</p>
+<p>I few weeks ago, I stumblied across <a href="https://twitter.com/dylancpurcell">Dylan Purcell’s</a> article on <a href="http://data.philly.com/philly/parking/">Philadelphia Parking Violations</a>. This is a nice glimpse of the data, but I wanted to get a taste of it myself. I went and downloaded the entire data set of <a href="https://www.opendataphilly.org/dataset/parking-violations">Parking Violations in Philadelphia</a> from the <a href="http://opendataphilly.org">OpenDataPhilly website</a> and came up with a few questions after checking out the data:</p>
 <ul>
 <li>How many tickets in the data set?</li>
 <li>What is the range of dates in the data?</li>
@@ -126,25 +126,28 @@ $(document).ready(function () {
 <li>What was the biggest/smallest individual fine? What were those fines for? Who issued those fines?</li>
 <li>What was the average individual fine amount?</li>
 <li>What day had the most/least count of fines? What is the average amount per day?</li>
-<li>How much $ in fines did they write each day? Average?</li>
-<li>What hour of the day had the most fines?</li>
-<li>What day of the week had the most fines?</li>
-<li>What day of the month had the most fines?</li>
-<li>What state has the most fines?</li>
-<li>Who (what individual) has the most fines?</li>
-<li>Who paid the most in fines?</li>
+<li>How much $ in fines did they write each day?</li>
+<li>What hour of the day are the most fines issued?</li>
+<li>What day of the week are the most fines issued?</li>
+<li>What day of the month are the most fines issued?</li>
+<li>What state has been issued the most fines?</li>
+<li>Who (what individual) has been issued the most fines?</li>
+<li>How much does the individual with the most fines owe the city?</li>
 <li>How many people have been issued fines?</li>
 <li>What fines are issued the most/least?</li>
 </ul>
 <p>And finally to the cool stuff:</p>
 <ul>
-<li>Where were the most fines?</li>
-<li>Can I predict the amount of parking tickets by the weather using linear regression?</li>
-<li>How about using Random Forests?</li>
+<li>Where were the most fines? Can I see them on a heat map?</li>
+<li>Can I predict the amount of parking tickets by weather data and other factors using linear regression? How about using Random Forests?</li>
 </ul>
 <p>With the data and a mission, I got on my way…</p>
-<p>First things first - we need to load the required packages and read in the data. I am cheating a bit here and loading the packages I know I’ll need down the road… so more on some of these later. There is probably a way to download the data directly from OpenDataPhilly’s website, but I just went ahead and downloaded it first to my working directory. K.I.S.S.</p>
+<p>First things first - we need to load the required packages and read in the data.</p>
+<pre class="r"><code>library(plyr)           # NEEDED TO DO SOME COOL DATA MANIPULATIONS
+library(ggmap)  # LETS ME GRAB A MAP OF PHILLY TO PLOT THE TICKETS AGAINST</code></pre>
 <pre><code>## Loading required package: ggplot2</code></pre>
+<pre class="r"><code>library(ggplot2)        # LETS ME PLOT THE TICKETS
+library(randomForest)   # RANDOM FORESTS = PREDICTIONS... YES!</code></pre>
 <pre><code>## randomForest 4.6-12</code></pre>
 <pre><code>## Type rfNews() to see new features/changes/bug fixes.</code></pre>
 <pre><code>## 
@@ -152,26 +155,10 @@ $(document).ready(function () {
 <pre><code>## The following object is masked from 'package:ggplot2':
 ## 
 ##     margin</code></pre>
-<pre><code>## Loading required package: grid</code></pre>
-<pre><code>## Loading required package: mvtnorm</code></pre>
-<pre><code>## Loading required package: modeltools</code></pre>
-<pre><code>## Loading required package: stats4</code></pre>
-<pre><code>## 
-## Attaching package: 'modeltools'</code></pre>
-<pre><code>## The following object is masked from 'package:plyr':
-## 
-##     empty</code></pre>
-<pre><code>## Loading required package: strucchange</code></pre>
-<pre><code>## Loading required package: zoo</code></pre>
-<pre><code>## 
-## Attaching package: 'zoo'</code></pre>
-<pre><code>## The following objects are masked from 'package:base':
-## 
-##     as.Date, as.Date.numeric</code></pre>
-<pre><code>## Loading required package: sandwich</code></pre>
+<pre class="r"><code>ptix &lt;- read.csv(&quot;Parking_Violations.csv&quot;)      ## DATA FILE FROM OPENDATAPHILLY</code></pre>
 </div>
-<div id="the-data" class="section level1">
-<h1>THE DATA!</h1>
+<div id="general-info-on-the-data" class="section level1">
+<h1>GENERAL INFO ON THE DATA!</h1>
 <div id="how-many-tickets-are-in-the-dataset" class="section level2">
 <h2>How many tickets are in the dataset?</h2>
 <p>There are 5624084 tickets in the dataset. That’s a good amount!</p>
@@ -200,63 +187,27 @@ names(days) &lt;- &quot;date&quot;                   ## NAME THE COLUMN TO SOMET
 ## COUNT THE DATA BY DATE - HOW MANY TICKETS DO WE HAVE EVERY DAY
 count_by_day &lt;- ddply(days, .(date), summarize, count = length(date))</code></pre>
 <p>Here we have data for 1370 dates. That is one more than the range given above… this may be that we have some cross overlap that the range above misses as it is a more precise calculation. At this point, I am ok with saying we don’t have any missing days of data (or any surprise extra days of data).</p>
-<pre class="r"><code>summary(ptix)           ## JUST A FLAT SUMMARY OF THE DATA FRAME</code></pre>
-<pre><code>##  Issue.Date.and.Time               State            Plate.ID      
-##  Min.   :2012-01-01 00:00:00   PA     :4356029   Min.   :      1  
-##  1st Qu.:2012-12-05 11:25:00   NJ     : 636306   1st Qu.: 626737  
-##  Median :2013-11-14 15:30:00   DE     : 100515   Median :1047828  
-##  Mean   :2013-11-16 12:25:37   NY     :  98687   Mean   :1020017  
-##  3rd Qu.:2014-10-24 22:01:00   MD     :  69765   3rd Qu.:1447067  
-##  Max.   :2015-09-30 22:09:00   VA     :  48349   Max.   :1990156  
-##                                (Other): 314433                    
-##     Division                  Location      
-##  Min.   : 0        500 S 2ND ST   :  25387  
-##  1st Qu.: 3        1100 ARCH ST   :  15392  
-##  Median :12        100 CHESTNUT ST:  14081  
-##  Mean   :16        2951 MARKET ST :  13703  
-##  3rd Qu.:24        1 S FRONT ST   :  12796  
-##  Max.   :99        3900 WALNUT ST :  12714  
-##  NA's   :4979292   (Other)        :5530011  
-##             Location.Standardized                         Coordinates     
-##                        : 287146                                 : 287146  
-##  500 S 2ND ST, 19147   :  25691   (39.9417074546,-75.1456828045):  24930  
-##  100 CHESTNUT ST, 19106:  17725   (39.9482248938,-75.1428741259):  19747  
-##  1100 ARCH ST, 19107   :  15744   (39.9498449463,-75.168310121) :  17292  
-##  1 S FRONT ST, 19106   :  13960   (39.9539677252,-75.2014257283):  15830  
-##  3900 WALNUT ST, 19104 :  13909   (39.9542887577,-75.1705781688):  15609  
-##  (Other)               :5249909   (Other)                       :5243530  
-##           Violation.Description      Fine         Issuing.Agency   
-##  METER EXPIRED CC    :1475774   $36.00 :1645698   PPA    :4979292  
-##  METER EXPIRED       : 771266   $26.00 :1371237   POLICE : 611348  
-##  OVER TIME LIMIT     : 587344   $51.00 : 884526   CENTER :   9628  
-##  STOP PROHIBITED CC  : 498432   $76.00 : 727024   SEPTA  :   9342  
-##  EXPIRED INSPECTION  : 443140   $41.00 : 673032   PENN   :   6366  
-##  PARKING PROHBITED CC: 225107   $31.00 : 213110   TEMPLE :   4055  
-##  (Other)             :1623021   (Other): 109457   (Other):   4053  
-##                        Violation.Location 
-##                                 : 287146  
-##  (39.9417074546, -75.1456828045):  24930  
-##  (39.9482248938, -75.1428741259):  19747  
-##  (39.9498449463, -75.168310121) :  17292  
-##  (39.9539677252, -75.2014257283):  15830  
-##  (39.9542887577, -75.1705781688):  15609  
-##  (Other)                        :5243530</code></pre>
-<p>So - there is a lot here. For one, we have a TON of NAs in the Division data. That’s fine… I don’t plan to use that data for much of anything. The <strong>Standardized Location</strong> and <strong>Coordinates</strong> appear to be identical. In that data, there is 287146 missing events. I think that is ok… that only is only 5 % of the data. We could probably back-fill this data, but the amount shouldn’t affect the overall quality of the insights we’re gleaning from the data.</p>
-<p>Depending on how I dive into the Violation Descriptions - there seems to be multiple varieties of the same violation (some tickets are appended with the “CC”). I’ll probably want to remove that before doing any analysis on that field.</p>
+</div>
+<div id="general-comments-on-the-data" class="section level2">
+<h2>General comments on the data</h2>
+<p>After looking at a summary of the data (I’ve chosen not to display the summary, so you’ll have to trust me… there is a lot and it ain’t pretty to print)… For one, we have a TON of NAs in the Division data. That’s fine… I don’t plan to use that data for anything. The <strong>Standardized Location</strong> and <strong>Coordinates</strong> appear to be identical. In that data, there is 287146 missing events. I think that is ok… that only is only 5 % of the data. We could probably back-fill this data looking at the <strong>location</strong> field, but the amount shouldn’t affect the overall quality of the insights I’m gleaning from the data.</p>
+<p>Depending on how I dive into the Violation Descriptions - there seems to be multiple varieties of the same violation (some tickets are appended with the “CC”). I’ll probably want to combine those before doing any analysis on that field.</p>
 <p>We now have a good idea of what the data looks like. It is pretty good in size and we dont seem to have any missing days of data. At this point, we are ready to gain some insight from the data.</p>
 </div>
 </div>
-<div id="insights-from-the-data" class="section level1">
-<h1>INSIGHTS FROM THE DATA</h1>
+<div id="deeper-insights-from-the-data" class="section level1">
+<h1>DEEPER INSIGHTS FROM THE DATA</h1>
 <div id="what-was-the-biggestsmallest-individual-fine" class="section level2">
 <h2>What was the biggest/smallest individual fine?</h2>
 <p>The Fine data is a string and it includes a pesky ‘$’ at the beginning. First we have to clean that up and convert the data to a numeric.</p>
 <pre class="r"><code>ptix$Fine &lt;- gsub(&quot;\\$&quot;, &quot;&quot;, ptix$Fine)         ## REMOVE THE '$'
 ptix$Fine &lt;- as.numeric(ptix$Fine)              ## CHANGE IT TO A NUMERIC</code></pre>
 <p>Now the largest and smallest fines:</p>
-<pre class="r"><code>maxfine &lt;- ptix[ptix$Fine == max(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
+<pre class="r"><code>## GRAB THE IMPORTANT COLUMNS FOR WHEN THE FINE IS THE MAXIMUM
+maxfine &lt;- ptix[ptix$Fine == max(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
+## GRAB THE IMPORTANT COLUMNS FOR WHEN THE FINE IS THE MINIMUM
 minfine &lt;- ptix[ptix$Fine == min(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
-head(maxfine)</code></pre>
+head(maxfine)   ## SHOW A SNIPPET OF THE MAXFINE DATA</code></pre>
 <pre><code>##        Issue.Date.and.Time          Location
 ## 266332 2013-06-02 14:17:00 2300 BEECH STREET
 ## 266333 2013-06-02 14:17:00 2300 BEECH STREET
@@ -278,7 +229,7 @@ head(maxfine)</code></pre>
 ## 476094         POLICE
 ## 529788         POLICE
 ## 543198         POLICE</code></pre>
-<pre class="r"><code>head(minfine)</code></pre>
+<pre class="r"><code>head(minfine)   ## SHOW A SNIPPET OF THE MINFINE DATA</code></pre>
 <pre><code>##        Issue.Date.and.Time           Location
 ## 265632 2013-09-15 14:50:00          5000 D ST
 ## 413817 2014-04-27 14:50:00         2300 BEACH
@@ -300,15 +251,38 @@ head(maxfine)</code></pre>
 ## 689043         POLICE
 ## 689044         POLICE
 ## 691690         POLICE</code></pre>
-<p>Interesting - the same fine ATV ON PUBLIC PROPTY has the most and least expensive fines at the same time. Executive decision: the fine should really be $2000 for all of these. With that, the new minimum fine is:</p>
+<p>Interesting - the same fine ATV ON PUBLIC PROPTY has the most and least expensive fines at the same time. <strong>Executive decision:</strong> the fine should really be $2000 for all of these. With that, the new minimum fine is:</p>
 <pre class="r"><code>ptix$Fine[ptix$Fine == min(ptix$Fine)] &lt;- 2000  ## CHANGING THE $1 FINES TO $2000
+## GRAB THE IMPORTANT COLUMNS FOR WHEN THE FINE IS THE MINIMUM NOW
 minfine &lt;- ptix[ptix$Fine == min(ptix$Fine), c(1, 5, 7, 8, 9, 10)]
-head(minfine)</code></pre>
+head(minfine)   ## SHOW A SNIPPET OF THE RESULTS</code></pre>
 <pre><code>##        Issue.Date.and.Time     Location Coordinates Violation.Description
 ## 312980 2012-08-02 15:30:00 500 W CHELTE               PK OVER TIME LIM 17
 ##        Fine Issuing.Agency
 ## 312980   15         POLICE</code></pre>
-<p>And the average person who got a fine paid $46.3302175.</p>
+<p>And the average fine was $46.33. It is certainly not cheap to get a ticket in Philadelphia.</p>
+</div>
+<div id="what-day-had-the-mostleast-count-of-fines-what-is-the-average-amount-per-day" class="section level2">
+<h2>What day had the most/least count of fines? What is the average amount per day?</h2>
+<pre class="r"><code>## DAY WITH THE MOST FINES ISSUED
+maxday &lt;- count_by_day[count_by_day$count == max(count_by_day$count), ]
+## DAY WITH THE LEAST FINES ISSUED
+minday &lt;- count_by_day[count_by_day$count == min(count_by_day$count), ]
+avday &lt;- mean(count_by_day$count)       ## CALCULATE THE MEAN</code></pre>
+<p>On the “best” day (for Philadelphia tax revenue), 2012-11-30, there were 6040 tickets issued. Contrast that to the “worst” day, 2014-12-25, when there were 6040 tickets issued. On average, there are 4105.1708029 parking violations given in Philadelphia per day.</p>
+</div>
+<div id="how-much-in-fines-did-they-write-each-day-average" class="section level2">
+<h2>How much $ in fines did they write each day? Average?</h2>
+<pre class="r"><code>ptix &lt;- cbind(ptix, days)       ## ADD THE FORMATTED DAYS FIELD TO THE DATA FRAME
+## SUMMARIZE THE SUM OF FINES PER DAY
+dollars_per_day &lt;- ddply(ptix, .(date), summarize, dols = sum(Fine))
+## DAY WITH THE MOST DOLLARS OF FINES ISSUED
+maxdols &lt;- dollars_per_day[dollars_per_day$dols == max(dollars_per_day$dols), ]
+## DAY WITH THE LEAST DOLLARS OF FINES ISSUED
+mindols &lt;- dollars_per_day[dollars_per_day$dols == min(dollars_per_day$dols), ]
+## THE AVERAGE AMOUNT IN FINES ISSUED IN A DAY
+avgdols &lt;- mean(dollars_per_day$dols)</code></pre>
+<p>The day with the highest amount, 2012-11-30, saw $2.729610^{5} in fines issued. The lowest amount of fines, $5939, was issued on 2015-10-01.</p>
 </div>
 </div>
 
