@@ -1,5 +1,3 @@
-setwd("~/Google Drive/Grad School/Programming Practice/Philly Parking Tickets")
-
 library(plyr)           # NEEDED TO DO SOME COOL DATA MANIPULATIONS
 library(ggplot2)        # LETS ME PLOT THE TICKETS
 library(ggmap)          # LETS ME GRAB A MAP OF PHILLY TO PLOT THE TICKETS AGAINST
@@ -112,6 +110,11 @@ tail(ptix[ptix$Plate.ID == 1612270 & ptix$State == "PA",])
 
 # How many people have been issued fines?
 numpeeps <- dim(count_by_plate)[1]
+
+# What Agency Issued the Most Tickets?
+count_by_agency <- ddply(ptix, .(Issuing.Agency), summarize, 
+                         count = length(Issuing.Agency))
+count_by_agency <- count_by_agency[order(count_by_agency$count, decreasing = TRUE), ]
 
 # Where were the most fines?
 ## CREATE THE DATA SET TO FEED INTO TABLEAU FOR VISUALIZATIONS
