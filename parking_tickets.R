@@ -86,7 +86,7 @@ barplot(height = count_by_mday$count, names.arg = count_by_mday$day_of_month)
 
 month <- as.data.frame(months(ptix$Issue.Date.and.Time))
 names(month) <- "month"
-count_by_month <- ddply(month, .(month), summarize, count = length(month) / )
+count_by_month <- ddply(month, .(month), summarize, count = length(month))
 
 # What state has the most fines?
 count_by_state <- ddply(ptix, .(State), summarize, count = length(State))
@@ -114,45 +114,16 @@ tail(ptix[ptix$Plate.ID == 1612270 & ptix$State == "PA",])
 numpeeps <- dim(count_by_plate)[1]
 
 # Where were the most fines?
-count_by_coord <- cbind(count_by_coord, latlon)
-count_by_coord$lat <- as.numeric(as.character(count_by_coord$lat))
-count_by_coord$lon <- as.numeric(as.character(count_by_coord$lon))
-
-ptix$Coordinates <- gsub("\\(", "", ptix$Coordinates)
-ptix$Coordinates <- gsub("\\)", "", ptix$Coordinates)
-
-## 287145 tickets do not have location data - skipping them for now
-latlon <- strsplit(ptix$Coordinates[ptix$Coordinates != ""], ",")
-
+## CREATE THE DATA SET TO FEED INTO TABLEAU FOR VISUALIZATIONS
+count_by_coord <- ddply(ptix[ptix$Coordinates != "", ], 
+                        .(Coordinates, Location.Standardized), 
+                        summarize, count = length(Coordinates))
+latlon <- count_by_coord$Coordinates
+latlon <- gsub("\\(", "", latlon)
+latlon <- gsub("\\)", "", latlon)
+latlon <- strsplit(latlon, ",")
 latlon <- ldply(latlon, rbind)
 names(latlon) <- c("lat", "lon")
 latlon$lat <- as.numeric(as.character(latlon$lat))
 latlon$lon <- as.numeric(as.character(latlon$lon))
-
-philly1 <- get_map(location = "Philadelphia", maptype = "satellite", zoom = 10)
-
-map1 <- ggmap(philly1, extent = "device") + geom_density2d(data = latlon, 
-                                                           aes(x = lon, y = lat)) + 
-        stat_density2d(data = latlon, aes(fill = ..level.., alpha = ..level..),
-                       size = 0.01, geom = "polygon") + 
-        scale_fill_gradient(low = "green", high = "red", guide = FALSE) + 
-        scale_alpha(range = c(0, 0.3), guide = FALSE)
-
-philly2 <- get_map(location = "Philadelphia", maptype = "satellite", zoom = 12)
-
-map2 <- ggmap(philly2, extent = "device") + geom_density2d(data = count_by_coord, 
-                                      aes(x = lon, y = lat)) + 
-        stat_density2d(data = count_by_coord, aes(fill = ..level.., alpha = ..level..),
-                       size = 0.01, geom = "polygon") + 
-        scale_fill_gradient(low = "green", high = "red", guide = FALSE) + 
-        scale_alpha(range = c(0, 0.3), guide = FALSE)
-
-philly3 <- get_map(location = "Philadelphia", maptype = "satellite", zoom = 14)
-
-map3 <- ggmap(philly3, extent = "device") + geom_density2d(data = count_by_coord, 
-                                                           aes(x = lon, y = lat)) + 
-        stat_density2d(data = count_by_coord, aes(fill = ..level.., alpha = ..level..),
-                       size = 0.01, geom = "polygon") + 
-        scale_fill_gradient(low = "green", high = "red", guide = FALSE) + 
-        scale_alpha(range = c(0, 0.3), guide = FALSE)
-
+count_by_coord <- cbind(count_by_coord, latlon)
