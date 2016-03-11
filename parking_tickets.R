@@ -127,3 +127,5 @@ names(latlon) <- c("lat", "lon")
 latlon$lat <- as.numeric(as.character(latlon$lat))
 latlon$lon <- as.numeric(as.character(latlon$lon))
 count_by_coord <- cbind(count_by_coord, latlon)
+
+write.csv(count_by_coord, "gis_data.csv", row.names = FALSE)
