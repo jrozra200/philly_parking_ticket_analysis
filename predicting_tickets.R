@@ -1,25 +1,20 @@
-setwd("~/Google Drive/Grad School/Programming Practice/Philly Parking Tickets")
+##########################################################
+## Can I predict the amount of parking tickets per day? ##
+##########################################################
+
+########################################
+## LOAD PACKAGES AND READ IN RAW DATA ##
+########################################
 
 library(plyr)
 library(randomForest)
 
-# Can I predict the amount of parking tickets by the weather?
-days <- as.data.frame(as.Date(ptix$Issue.Date.and.Time, format = "%m/%d/%Y"))
-names(days) <- "DATE"
-count_by_day <- ddply(days, .(DATE), summarize, count = length(DATE))
+ptix <- read.csv("Parking_Violations.csv")      ## DATA FILE FROM OPENDATAPHILLY
 
-hist(count_by_day$count)
-
-train <- count_by_day[count_by_day$DATE < "2014-08-01", ]
-test <- count_by_day[count_by_day$DATE >= "2014-08-01", ]
-
+## READ IN THE WEATHER DATA (FROM NCDC)
 weather_data <- read.csv("weather_data.csv")
-weather_data$DATE <- as.Date(as.POSIXct(strptime(as.character(weather_data$DATE), 
-                                                 format = "%Y%m%d")), 
-                             format = "%m/%d/%Y")
 
-train <- join(train, weather_data, by = "DATE")
-test <- join(test, weather_data, by = "DATE")
+## LIST OF ALL FEDERAL HOLIDAYS DURING THE RANGE OF THE DATA SET 
 holidays <- as.Date(c("2012-01-02", "2012-01-16", "2012-02-20", "2012-05-28",
                       "2012-07-04", "2012-09-03", "2012-10-08", "2012-11-12",
                       "2012-11-22", "2012-12-25", "2013-01-01", "2013-01-21", 
@@ -30,29 +25,89 @@ holidays <- as.Date(c("2012-01-02", "2012-01-16", "2012-02-20", "2012-05-28",
                       "2014-11-27", "2014-12-25", "2015-01-01", "2015-01-09",
                       "2015-02-16", "2015-05-25", "2015-07-03", "2015-09-07"))
 
-train$STATION <- NULL
-train$STATION_NAME <- NULL
-train$MDPR[train$MDPR < 0] <- 0
-train$DAPR[train$DAPR < 0] <- 0
-train$PRCP[train$PRCP < 0] <- 0
-train$SNWD[train$SNWD < 0] <- 0
-train <- train[train$TMAX > 0, ]
-train <- train[train$TMIN > 0, ]
-train <- train[!is.na(train$TMAX), ]
-train$SNOW[train$SNOW < 0] <- 0
-train$TOBS <- NULL
-train$WT01[train$WT01 < 0] <- 0
-train$WT03[train$WT03 < 0] <- 0
-train$WT04[train$WT04 < 0] <- 0
-train$WT01 <- NULL
-train$WT04 <- NULL
-train$WT03 <- NULL
-train$TMAX <- train$TMAX / 10
-train$TMIN <- train$TMIN / 10
-train$DOW <- as.factor(weekdays(train$DATE))
-train$HOL <- 0
-train$HOL[as.character(train$DATE) %in% as.character(holidays)] <- 1
-train$HOL <- as.factor(train$HOL)
+
+#####################
+## FORMAT THE DATA ##
+#####################
+
+## SUMMARIZE THE DATA SET - COUNT OF TICKETS PER DAY
+days <- as.data.frame(as.Date(ptix$Issue.Date.and.Time, format = "%m/%d/%Y"))
+names(days) <- "DATE"
+count_by_day <- ddply(days, .(DATE), summarize, count = length(DATE))
+
+## CHANGE THE DATE FACTOR INTO A DATE VARIABLE
+weather_data$DATE <- as.Date(as.POSIXct(strptime(as.character(weather_data$DATE), 
+                                                 format = "%Y%m%d")), 
+                             format = "%m/%d/%Y")
+
+## JOIN THE WEATHER DATA TO THE TICKET DATA
+count_by_day <- join(count_by_day, weather_data, by = "DATE")
+
+## I DON'T CARE ABOUT THE STATION OR ITS NAME - GETTING RID OF IT
+count_by_day$STATION <- NULL
+count_by_day$STATION_NAME <- NULL
+
+## A BUNCH OF VARIABLE ARE CODED WITH NEGATIVE VALUES IF THEY WEREN'T
+## COLLECTED - CHANGING THEM TO 0s
+count_by_day$MDPR[count_by_day$MDPR < 0] <- 0
+count_by_day$DAPR[count_by_day$DAPR < 0] <- 0
+count_by_day$PRCP[count_by_day$PRCP < 0] <- 0
+count_by_day$SNWD[count_by_day$SNWD < 0] <- 0
+count_by_day$SNOW[count_by_day$SNOW < 0] <- 0
+count_by_day$WT01[count_by_day$WT01 < 0] <- 0
+count_by_day$WT03[count_by_day$WT03 < 0] <- 0
+count_by_day$WT04[count_by_day$WT04 < 0] <- 0
+
+## REMOVING ANY ROWS WITH MISSING TEMP DATA
+count_by_day <- count_by_day[count_by_day$TMAX > 0, ]
+count_by_day <- count_by_day[count_by_day$TMIN > 0, ]
+
+## GETTING RID OF SOME NA VALUES THAT POPPED UP
+count_by_day <- count_by_day[!is.na(count_by_day$TMAX), ]
+
+
+## REMOVING COLUMNS THAT HAVE LITTLE OR NO DATA IN THEM (ALL 0s)
+count_by_day$TOBS <- NULL
+count_by_day$WT01 <- NULL
+count_by_day$WT04 <- NULL
+count_by_day$WT03 <- NULL
+
+## CHANGING THE DATA, UNNECESSARILY, FROM 10ths OF DEGREES CELCIUS TO 
+## JUST DEGREES CELCIUS
+count_by_day$TMAX <- count_by_day$TMAX / 10
+count_by_day$TMIN <- count_by_day$TMIN / 10
+
+## FEATURE CREATION - ADDING IN THE DAY OF WEEK
+count_by_day$DOW <- as.factor(weekdays(count_by_day$DATE))
+
+## FEATURE CREATION - ADDING IN IF THE DAY WAS A HOLIDAY
+count_by_day$HOL <- 0
+count_by_day$HOL[as.character(count_by_day$DATE) %in% 
+                         as.character(holidays)] <- 1
+count_by_day$HOL <- as.factor(count_by_day$HOL)
+
+## FEATURE CREATION - ADDING IN THE MONTH
+count_by_day$MON <- as.factor(months(count_by_day$DATE))
+
+## SPLIT THE DATA SET INTO TRAIN AND TEST SEGMENTS
+train <- count_by_day[count_by_day$DATE < "2014-08-01", ]
+test <- count_by_day[count_by_day$DATE >= "2014-08-01", ]
+
+
+######################
+## EXPLORE THE DATA ##
+######################
+
+## IS THE DATA NORMALLY DISTRIBUTED?
+hist(count_by_day$count, xlab = "Count of Tickets per Day", 
+     main = "Histogram of Daily Violation Counts", 
+     ylab = "Number of Days Issued the Amount")
+
+## YOU CAN SEE THAT THE BOTTOM GROUP IS MADE UP MOSTLY OF SUNDAYS
+plot(x = count_by_day$TMIN, y = count_by_day$count, 
+     xlab = "Minimum Temperature (Celcius)", ylab = "Count of tickets", 
+     main = "Minimum Temperature vs. Count of Tickets", 
+     pch = ifelse(count_by_day$DOW == "Sunday", 1, 2))
 
 summary(train)
 
@@ -67,31 +122,6 @@ plot(x = train$TMIN, y = train$count)
 
 linmod <- lm(count ~ DOW + HOL + TMIN + SNOW, data = train)
 
-test$STATION <- NULL
-test$STATION_NAME <- NULL
-test$MDPR[test$MDPR < 0] <- 0
-test$DAPR[test$DAPR < 0] <- 0
-test$PRCP[test$PRCP < 0] <- 0
-test$SNWD[test$SNWD < 0] <- 0
-test <- test[test$TMAX > 0, ]
-test <- test[test$TMIN > 0, ]
-test <- test[!is.na(test$TMAX), ]
-test$SNOW[test$SNOW < 0] <- 0
-test$TOBS <- NULL
-test$WT01[test$WT01 < 0] <- 0
-test$WT03[test$WT03 < 0] <- 0
-test$WT04[test$WT04 < 0] <- 0
-test$WT01 <- NULL
-test$WT04 <- NULL
-test$WT03 <- NULL
-test$TMAX <- test$TMAX / 10
-test$TMIN <- test$TMIN / 10
-test$DOW <- as.factor(weekdays(test$DATE))
-test$HOL <- 0
-test$HOL[as.character(test$DATE) %in% as.character(holidays)] <- 1
-test$HOL <- as.factor(test$HOL)
 
 test$RF <- round(predict(forest, test), 0)
 test$LM <- round(predict.lm(linmod, test), 0)
-
-# Can I do some k-means clustering?
