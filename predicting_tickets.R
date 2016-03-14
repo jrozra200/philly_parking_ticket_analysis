@@ -1,5 +1,7 @@
 ##########################################################
+##########################################################
 ## Can I predict the amount of parking tickets per day? ##
+##########################################################
 ##########################################################
 
 ########################################
@@ -109,19 +111,40 @@ plot(x = count_by_day$TMIN, y = count_by_day$count,
      main = "Minimum Temperature vs. Count of Tickets", 
      pch = ifelse(count_by_day$DOW == "Sunday", 1, 2))
 
-summary(train)
+############################
+## FEATURE IDENTIFICATION ##
+############################
 
-forest <- randomForest(count ~ SNOW + TMIN + DOW + HOL, data = train, 
-                       importance = TRUE, ntree = 10000)
+## USING A RANDOM FOREST TO DETERMINE THE VARIABLE IMPORTANCE
+featForest <- randomForest(count ~ MDPR + DAPR + PRCP + SNWD + SNOW + TMAX + 
+                                   TMIN + DOW + HOL + MON, data = train, 
+                           importance = TRUE, ntree = 10000)
 
-plot(forest)
-varImpPlot(forest)
-forest$importance
+## PLOT THE VARIABLE TO SEE THE IMPORTANCE
+varImpPlot(featForest)
 
-plot(x = train$TMIN, y = train$count)
+## SEE THE CORRELATION BETWEEN THE NUMERIC VARIABLES
+cor(count_by_day[,c(3:9)])
 
-linmod <- lm(count ~ DOW + HOL + TMIN + SNOW, data = train)
+######################
+## BUILD THE MODELS ##
+######################
 
+## BUILD ANOTHER FOREST USING THE IMPORTANT VARIABLES
+predForest <- randomForest(count ~ DOW + HOL + TMIN + MON, data = train, 
+                           importance = TRUE, ntree = 10000)
 
-test$RF <- round(predict(forest, test), 0)
+## BUILD A LINEAR MODEL USING THE IMPORTANT VARIABLES
+linmod <- lm(count ~ TMIN + DOW + HOL + MON, data = train)
+
+summary(linmod)
+
+###########################
+## APPLY TO THE TEST SET ##
+###########################
+
+test$RF <- round(predict(predForest, test), 0)
 test$LM <- round(predict.lm(linmod, test), 0)
+
+difOfRF <- sum(abs(test$RF - test$count))
+difOfLM <- sum(abs(test$LM - test$count))
