@@ -138,6 +138,7 @@ predForest <- randomForest(count ~ DOW + HOL + TMIN + MON, data = train,
 linmod <- lm(count ~ TMIN + DOW + HOL + MON, data = train)
 
 summary(linmod)
+anova(linmod)
 
 ###########################
 ## APPLY TO THE TEST SET ##
