@@ -2,6 +2,7 @@ library(plyr)           # NEEDED TO DO SOME COOL DATA MANIPULATIONS
 library(ggplot2)        # LETS ME PLOT THE TICKETS
 library(ggmap)          # LETS ME GRAB A MAP OF PHILLY TO PLOT THE TICKETS AGAINST
 library(randomForest)   # RANDOM FORESTS = PREDICTIONS... YES!
+library(stats)          # STATISTICS - THE REAL GOODNESS
 
 ptix <- read.csv("Parking_Violations.csv")      ## DATA FILE FROM OPENDATAPHILLY
 
@@ -73,6 +74,14 @@ count_by_wday <- ddply(wday, .(weekday), summarize, count = length(weekday))
 maxwday <- count_by_wday$weekday[count_by_wday$count == max(count_by_wday$count)]
 minwday <- count_by_wday$weekday[count_by_wday$count == min(count_by_wday$count)]
 barplot(height = count_by_wday$count, names.arg = count_by_wday$weekday)
+
+# Are Monday through Saturday the same as one another?
+alpha <- 0.05 / 6
+xbar <- mean(count_by_wday$count[count_by_wday != "Sunday"], na.rm = TRUE)
+t.test(count_by_wday$count[c(1:3, 5:7)], mu = xbar, 
+       conf.level = 0.95) 
+count_by_wday[(count_by_wday$count < 803640.1 | count_by_wday$count > 976571.2) 
+              & count_by_wday$weekday != "Sunday", ]
 
 # What day of the month had the most fines?
 mday <- as.data.frame(strftime(ptix$Issue.Date.and.Time, format = "%d"))
