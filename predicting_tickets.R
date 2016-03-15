@@ -135,17 +135,47 @@ predForest <- randomForest(count ~ DOW + HOL + TMIN + MON, data = train,
                            importance = TRUE, ntree = 10000)
 
 ## BUILD A LINEAR MODEL USING THE IMPORTANT VARIABLES
-linmod <- lm(count ~ TMIN + DOW + HOL + MON, data = train)
+linmod_with_mon <- lm(count ~ TMIN + DOW + HOL + MON, data = train)
 
-summary(linmod)
-anova(linmod)
+## THE SUMMARY AND ANOVA TABLE FOR THE MODEL WITH THE MONTH TERM
+summary(linmod_with_mon)
+anova(linmod_with_mon)
 
-###########################
-## APPLY TO THE TEST SET ##
-###########################
+## BUILD A LINEAR MODEL WITHOUT THE MONTH TERM (BECAUSE MANY OF THE VALUES ARE 
+## NOT SIGNIFICANT)
+linmod_wo_mon <- lm(count ~ TMIN + DOW + HOL, data = train)
 
+## THE SUMMARY AND ANOVA TABLE FOR THE MODEL WITHOUT THE MONTH TERM
+summary(linmod_wo_mon)
+anova(linmod_wo_mon)
+
+###############################################################################
+## IS THE MONTH TERM STATISTICALLY EQUIVALENT TO ZERO (& THUS UNNECCESSARY)? ##
+###############################################################################
+
+## Ho: B9 = B10 = B11 = B12 = B13 = B14 = B15 = B16 = B17 = B18 = B19 = 0
+## Ha: At least one is not equal to 0
+
+## F-Stat = MSdrop / MSE
+f_stat <- ((241885490 - 221563026) / (759 - 748)) / 296207
+
+## P_VALUE OF THE F_STAT CALCULATED ABOVE
+p_value <- 1 - pf(f_stat, 11, 748)
+
+## SINCE THE P-VALUE 6.8829e-10 IS MUCH LESS THAN 0.05, REJECT THE NULL 
+## HYPOTHESIS AND CONCLUDE THE NULL, THAT AT LEAST ONE OF THE MONTH TERMS IS 
+## NOT EQUAL TO ZERO. BECAUSE OF THIS, I'LL KEEP THE TERM IN THE MODEL.
+
+###############################################################
+## APPLY THE LINEAR AND RANDOM FOREST MODELS TO THE TEST SET ##
+###############################################################
+
+## PREDICT THE VALUES BASED ON THE MODELS
 test$RF <- round(predict(predForest, test), 0)
-test$LM <- round(predict.lm(linmod, test), 0)
+test$LM <- round(predict.lm(linmod_with_mon, test), 0)
 
+## SEE THE ABSOLUTE DIFFERENCE FROM THE ACTUAL
 difOfRF <- sum(abs(test$RF - test$count))
 difOfLM <- sum(abs(test$LM - test$count))
+
+## SEEMS LIKE THE LM DOES BETTER OVERALL THAN THE RF
